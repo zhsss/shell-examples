@@ -12,6 +12,7 @@ function quality_compress {
 	fi
 }
 
+
 function quality_resize {
 	image_original_dir=$1
 	image_object_dir=$2

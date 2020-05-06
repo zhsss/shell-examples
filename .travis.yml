@@ -5,10 +5,10 @@ before_install:
 
 script:
   - ls -l
-  - bash test.sh
+  - bash test-1.sh
   - ls -l
   - pwd
-  - cat file
+    # - cat file
 
 notifications:
   email:
