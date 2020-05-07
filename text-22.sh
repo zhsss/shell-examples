@@ -132,7 +132,7 @@ players_position()
 	echo There are $Midfielder midfilders.The percentage is $percent_M'%'.
 	echo There are $Forward forwards.The percentage is $percent_F'%'.
 }
-#age_range
+age_range
 extreme_age
-#length_of_name
-#players_position
+length_of_name
+players_position
