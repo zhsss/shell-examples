@@ -5,7 +5,7 @@ before_install:
 
 script:
   - ls -l
-  - bash test-11.sh
+  - bash text-22.sh
   - ls -l
   - pwd
     # - cat file
