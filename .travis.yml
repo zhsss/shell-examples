@@ -8,7 +8,7 @@ script:
   - bash test.sh
   - ls -l
   - pwd
-  - cat file
+
   - wget "https://c4pr1c3.github.io/LinuxSysAdmin/exp/chap0x04/web_log.tsv.7z"
   - sudo apt install p7zip-full
   - 7z x web_log.tsv.7z
