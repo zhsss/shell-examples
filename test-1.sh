@@ -1,169 +1,140 @@
-#!/bin/bash
-function quality_compress {
-	image_original_dir=$1
-	image_object_dir=$2
-	quality_num=$3
-	image_format=$(identify -format "%m" $image_original_dir)
-	if [[ $image_format == "JPEG" ]]; then
-		echo "compressing........";
-		$(convert $image_original_dir -quality $quality_num $image_object_dir)
-	#else
-	#	echo "we only compress the image with JPEG format"
-	fi
+#!/usr/bin/env bash
+
+function help()
+{
+	echo "usage:"
+
+	echo "-q [quality_num][dir]		对jpeg格式图片进行图片质量压缩"
+	echo "-r [percent][dir]		对jpeg/png/svg格式图片在保持原始宽高比的前提下压缩分辨率"
+	echo "-w [watermark_text][dir]	批量添加自定义文本水印"
+	echo "-p [prefix_text][dir]		统一添加文件名前缀"
+	echo "-s [suffix_text][dir]		统一添加文件名后缀"
+	echo "-c [dir]			将png/svg图片统一转换为jpg格式图片"
+	echo "-h				帮助文档"
 }
 
-
-function quality_resize {
-	image_original_dir=$1
-	image_object_dir=$2
-	resize_type=$3
-	quality_num=$4
-	image_format=$(identify -format "%m" $image_original_dir ) 
-        if [[ $image_format == "JPEG" || $image_format == "SVG" || $image_format == "PNG" ]]; then
-                 echo "resizing........";
-	 	 if [[ $resize_type == "p" ]];then
-			# to do check imput
-			$(convert -resize $quality_num"%" $image_original_dir  $image_object_dir);
-		 elif [[ $resize_type == "h" ]];then
-			 $(convert -resize "x"$quality_num $image_original_dir $image_object_dir);
-		 elif [[ $resize_type == "w" ]];then
-			 $(convert -resize $quality_num $image_original_dir $image_object_dir);
-		 else
-			 echo "wrong input :("
-		 fi
-        # else
-         #        echo "we only compress the image with JPEG/SVG/PNG format"
-         fi
- }
-function add_your_text {
-	image_original_dir=$1
-	image_target_dir=$2
-	your_text=$3
-	font_size=$4
-	text_color=$5
-	text_position=$6
-	text_pixel=$7
-	$(convert $image_original_dir -gravity $text_position -fill $text_color -pointsize $font_size -draw "text $text_pixel '$your_text'" $image_target_dir)
-	echo "convert $image_original_dir -gravity $text_position -fill $text_color -pointsize $font_size -draw \"text $text_pixel '$your_text'\" $image_target_dir"
-
+function jpeg_quality_compress()
+#对jpeg格式图片进行图片质量压缩
+{
+	quality_num=${1}
+	dir=${2}
 	
-}
-function rename {
-	image_original_name=$1
-	image_target_name=$2
-	rename_type=$3
-	xxx=$(echo $image_original_name | grep -oP '\.\w+$')		
-	yyy=$(echo $image_original_name | grep -oP '(?<=/)[^/]+(?=\.)') 
-	zzz=$(echo $image_original_name | grep -oP '^.+(?=/)')
-
-	if [[ $rename_type == 'before' ]];then
-		$(convert $image_original_name $zzz/$image_target_name$yyy$xxx)
-	fi
-	
-	if [[ $rename_type == 'after' ]];then
-		$(convert $image_original_name $zzz/$yyy$image_target_name$xxx)
-	fi
-
-}
-function convert_image {
-	image_original_dir=$1
-	target_format=$2
-	image_format=$(identify -format "%m" $image_original_dir)
-	xxx=$(echo $image_original_dir | grep -oP '\.\w+$')		
-	yyy=$(echo $image_original_dir | grep -oP '(?<=/)[^/]+(?=\.)') 
-	zzz=$(echo $image_original_dir | grep -oP '^.+(?=/)')
-	if [[ $image_format == "PNG" || $image_format == "SVG" ]]; then
-		$(convert $image_original_dir $zzz/$yyy.$target_format)
-	#else
-	#	echo " wrong input:("
-	fi
+	jpeg_files=($(find "${dir}" -regex '.*\.jpg'))
+	for jpeg_file in "${jpeg_files[@]}";
+	do
+		file_name=${jpeg_file%.*}
+		file_tail=${jpeg_file##*.}
+		convert ${jpeg_file} -quality ${quality_num} $file_name'_quality.'$file_tail
+		echo $jpeg_file 'is compressed into' $file_name'_quality.'$file_tail  
+	done
 }
 
+function keep_ratio_compress()
+#对jpeg/png/svg格式图片在保持原始宽高比的前提下压缩分辨率
+{
+	percent=${1}
+	dir=${2}
+	jps_files=($(find "${dir}" -regex '.*\.jpg\|.*\.svg\|.*\.png'))
 
+	for jps_file in "${jps_files[@]}";
+	do
+		file_name=${jps_file%.*}
+		file_tail=${jps_file##*.}
+		convert ${jps_file} -resize ${percent}'%x'${percent}'%' $file_name'_'$percent'%.'$file_tail
+		echo ${jps_file} 'is compressed into' $file_name'_'$percent'%.'$file_tail  
+	done
 
-function one_file_deal {
-	if [[ $1 == "compress" ]];then
-		quality_compress $2 $3 $4
-	elif [[ $1 == "resize" ]];then
-		quality_resize $2 $3 $4 $5 
-	elif [[ $1 == "add_text" ]];then
-		add_your_text $2 $3 $4 $5 $6 $7 $8
-	elif [[ $1 == "rename" ]];then
-		rename $2 $3 $4
-	elif [[ $1 == "convert" ]];then 
-		convert_image $2 $3
-	else
-		echo " input :("
-	fi
 }
-function batch_processing {
-	arg_len=$#
-	mmm=$(echo $* | sed  -e 's/\d001//g')
-	arg_array=($mmm)
-	origin_dir=${arg_array[1]}
-	all_file=$(find $origin_dir)
-	object_dir=${arg_array[2]}
-	for n in ${all_file[@]};do
-		arg_array[1]=$n
-		if [[ $1 != 'rename' &&  $1 != 'convert' ]];then
-		xxx=$(echo $n | grep -oP '\.\w+$')		
-		yyy=$(echo $n | grep -oP '(?<=/)[^/]+(?=\.)') 
-	#echo $image_format
-			arg_array[2]=$object_dir$yyy$xxx
-		fi
-		format_file_res=($(file ${arg_array[1]}))
-		format_file=${format_file_res[1]}
-		if [[ $format_file == "PNG" || $format_file == "SVG" || $format_file == "JPEG" ]]; then
-		one_file_deal ${arg_array[*]}
-	fi
+
+function add_watermark()
+##对图片批量添加自定义文本水印
+{
+	watermark_text=${1}
+	dir=${2}
+	all_files=($(find "${dir}" -regex '.*\.jpg\|.*\.svg\|.*\.png\|.*\.jpeg'))
+	for all_file in "${all_files[@]}";
+	do
+		file_name=${all_file%.*}
+		file_tail=${all_file##*.}
+	convert ${all_file} -gravity south -fill black -pointsize 16 -draw "text 5,5 '$watermark_text'" $file_name'_watermarked.'$file_tail
+	echo ${all_file} 'is added watermark into' $file_name'_watermarked.'$file_tail
+done
+}
+
+function rename_add_prefix()
+#统一添加文件名前缀
+{
+	prefix=${1}
+	dir=${2}
+	files=($(find "${dir}" -regex '.*\.jpg\|.*\.svg\|.*\.png\|.*\.jpeg'))
+	for file in "${files[@]}";
+	do
+		file_dir=${file%/*}
+		file_name=${file%.*}
+		file_tail=${file##*.}
+		file_sname=${file_name##*/}
+		mv $file $file_dir'/'$prefix$file_sname'.'$file_tail
+		echo "prefix ia added"
+	done
+}
+
+function rename_add_suffix()
+#统一添加文件名后缀
+{
+	suffix=${1}
+	dir=${2}
+	files=($(find "${dir}" -regex '.*\.jpg\|.*\.svg\|.*\.png\|.*\.jpeg'))
+	for file in "${files[@]}";
+	do
+		file_name=${file%.*}
+		file_tail=${file##*.}
+		mv $file $file_name$suffix'.'$file_tail
+		echo "suffix is added"
+	done
+}
+
+function transfer_format()
+#将png/svg图片统一转换为jpg格式图片
+{
+	dir=${1}
+	files=($(find "$dir" -regex  '.*\.png\|.*svg'))
+	for file in "${files[@]}";
+	do
+		convert $file "${file%.*}.jpg"
+		echo "tranfer to jpg finished"
 	done
 }
 
 
-#function help_fun {
-
-
-
-
-#}
-
-if [[ $1 == "bp" ]];then
-	arg_len=$#
-	arg_arr=($*)
-	batch_processing ${arg_arr[*]:1:$arg_len}
-elif [[ $1 == 'np' ]];then
-	str=$*
-	str=${str[@]// /*}
-	str=${str[@]//:/ }
-	commands=($str)
-	flag=0
-	for i in ${commands[@]};do
-	#	echo $i
-		if [[ $flag != 1 ]];then
-			flag=1
-		else
-		tttt=$(echo ${i[@]//\*/ })
-		com=($tttt)
-		len=${#com[@]}
- 		batch_processing ${com[@]:1:$len}
-		fi
-	done
-
-else
-	echo "bash image_processing.sh"
-	echo "bp batch process "
-	echo "bp args"
- 	echo "np multi_command batch process"
-	echo "   np *bp args bp args *bp args. ...... "
-	echo "args:"
- 	echo "rename original_path your_string [before|after]"
- 	echo "	before : prefix"
- 	echo "	after  : suffix "
- 	echo "resize original_path destination_path [p|h|w] a_number"
- 	echo "	p : percentage"
- 	echo "	h : according to hight" 
- 	echo "	w : according to weight" 
- 	echo "convert orignal_path dest_image_format"
- 	echo "compress orignal_path destination_path quality_number"
- 	echo "add_text  original_path destination_path watermark_text font_size text_color text_position  distance_pixel"
-fi
+while [ "$1" != "" ];do
+       case "$1" in
+	       "-q")
+		       jpeg_quality_compress $2 $3
+		       exit 0
+		       ;;
+	       "-r")
+		       keep_ratio_compress $2 $3
+		       exit 0
+		       ;;
+	       "-w")
+		       add_watermark $2 $3
+		       exit 0
+		       ;;
+	       "-p")
+		       rename_add_prefix $2 $3
+		       exit 0
+		       ;;
+	       "-s")
+		       rename_add_suffix $2 $3
+		       exit 0
+		       ;;
+	       "-c")
+		       transfer_format $2
+		       exit 0
+		       ;;
+	       "-h")
+		       help
+		       exit 0
+		       ;;
+       esac
+done
