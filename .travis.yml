@@ -8,13 +8,13 @@ before_install:
         - tar --xz -xvf shellcheck-"${scversion}".linux.x86_64.tar.xz
         - sudo cp shellcheck-"${scversion}"/shellcheck /usr/bin/
         - /usr/bin/shellcheck --version
-
+        - sed -i 's/\r//g' test-1.sh
          
         - sudo apt-get install imagemagick 
         - sudo apt install ghostscript
 
        
-        - wget "https://c4pr1c3.github.io/LinuxSysAdmin/exp/chap0x04/worldcupplayerinfo.tsv"
+        
      
 script:
 
