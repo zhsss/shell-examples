@@ -42,7 +42,7 @@ script:
           
   
 after_script:
-        - /usr/bin/shellcheck test-5-1.sh
+        - /usr/bin/shellcheck test-1.sh
        
 
 after_failure:
