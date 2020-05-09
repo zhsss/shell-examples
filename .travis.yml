@@ -50,6 +50,7 @@ after_failure:
         - pwd
         - df -h
         
+        
 
 notifications:
           email:
