@@ -1,140 +1,121 @@
 #!/usr/bin/env bash
 
-function help()
-{
-	echo "usage:"
+apt update
+if [[ $? -ne 0 ]]; then
+	echo "apt update failed!"
+	exit
+fi
 
-	echo "-q [quality_num][dir]		对jpeg格式图片进行图片质量压缩"
-	echo "-r [percent][dir]		对jpeg/png/svg格式图片在保持原始宽高比的前提下压缩分辨率"
-	echo "-w [watermark_text][dir]	批量添加自定义文本水印"
-	echo "-p [prefix_text][dir]		统一添加文件名前缀"
-	echo "-s [suffix_text][dir]		统一添加文件名后缀"
-	echo "-c [dir]			将png/svg图片统一转换为jpg格式图片"
-	echo "-h				帮助文档"
-}
+#判断系统是否已安装vsftpd
+command -v vsftpd > /dev/null
+if [[ $? -ne 0 ]]; then
+	apt install -y vsftpd
+	if [[ $? -ne 0 ]]; then
+		echo "failed to install vsftpd!"
+		exit
+	fi
+else
+	echo "vsftpd is already installed."
+fi
 
-function jpeg_quality_compress()
-#对jpeg格式图片进行图片质量压缩
-{
-	quality_num=${1}
-	dir=${2}
-	
-	jpeg_files=($(find "${dir}" -regex '.*\.jpg'))
-	for jpeg_file in "${jpeg_files[@]}";
-	do
-		file_name=${jpeg_file%.*}
-		file_tail=${jpeg_file##*.}
-		convert ${jpeg_file} -quality ${quality_num} $file_name'_quality.'$file_tail
-		echo $jpeg_file 'is compressed into' $file_name'_quality.'$file_tail  
-	done
-}
+#判断文件是否已有备份
+if [[ ! -f /etc/vsftpd.conf.bak ]]; then
+	#备份文件
+	cp /etc/vsftpd.conf /etc/vsftpd.conf.bak
+else
+	echo "/etc/vsftpd.conf.bak already exits."
+fi
 
-function keep_ratio_compress()
-#对jpeg/png/svg格式图片在保持原始宽高比的前提下压缩分辨率
-{
-	percent=${1}
-	dir=${2}
-	jps_files=($(find "${dir}" -regex '.*\.jpg\|.*\.svg\|.*\.png'))
+#匿名用户访问FTP设置
+#创建匿名用户可访问的文件夹
+anony_path="/var/ftp/pub"
+if [[ ! -d "$anony_path" ]];
+then
+	mkdir -p "$anony_path"
+fi
 
-	for jps_file in "${jps_files[@]}";
-	do
-		file_name=${jps_file%.*}
-		file_tail=${jps_file##*.}
-		convert ${jps_file} -resize ${percent}'%x'${percent}'%' $file_name'_'$percent'%.'$file_tail
-		echo ${jps_file} 'is compressed into' $file_name'_'$percent'%.'$file_tail  
-	done
+#设置pub文件夹访问权限
+chown nobody:nogroup "$anony_path"
+echo "vsftpd test file for anonymous user" | tee "${anony_path}/test_a.txt"
 
-}
+#修改配置文件vsftpd.conf
+#允许匿名下载
+sed -i -e "/anonymous_enable=/s/NO/YES/g;/anonymous_enable=/s/#//g" /etc/vsftpd.conf
+#允许本地登录
+sed -i -e "/local_enable=/s/NO/YES/g;/local_enable=/s/#//g" /etc/vsftpd.conf
+# 允许更改文件系统
+sed -i -e "/write_enable=/s/NO/YES/g;/write_enable=/s/#//g" /etc/vsftpd.conf
+#将用户限制在其主目录中
+sed -i -e "/chroot_local_user=/s/NO/YES/g;/chroot_local_user=/s/#//g" /etc/vsftpd.conf
+#不允许匿名用户上传文件
+sed -i -e "/anon_upload_enable=/s/YES/NO/g;/anon_upload_enable=/s/#//g" /etc/vsftpd.conf
+#允许匿名用户在某些条件下创建新目录
+sed -i -e "/anon_mkdir_write_enable=/s/YES/NO/g" /etc/vsftpd.conf
+#默认传输日志/var/log/xferlog
+sed -i -e "/xferlog_file=/s/#//g" /etc/vsftpd.conf
 
-function add_watermark()
-##对图片批量添加自定义文本水印
-{
-	watermark_text=${1}
-	dir=${2}
-	all_files=($(find "${dir}" -regex '.*\.jpg\|.*\.svg\|.*\.png\|.*\.jpeg'))
-	for all_file in "${all_files[@]}";
-	do
-		file_name=${all_file%.*}
-		file_tail=${all_file##*.}
-	convert ${all_file} -gravity south -fill black -pointsize 16 -draw "text 5,5 '$watermark_text'" $file_name'_watermarked.'$file_tail
-	echo ${all_file} 'is added watermark into' $file_name'_watermarked.'$file_tail
-done
-}
+#设置用户名和密码方式访问的账号
+user="poggio"
+# 添加用户
+if [[ $(grep -c "^$user:" /etc/passwd) -eq 0 ]];then
+		useradd "$user"
+		echo "$user:poggio" | chpasswd
+else
+		echo "User ${user} is already exits~"
+fi
 
-function rename_add_prefix()
-#统一添加文件名前缀
-{
-	prefix=${1}
-	dir=${2}
-	files=($(find "${dir}" -regex '.*\.jpg\|.*\.svg\|.*\.png\|.*\.jpeg'))
-	for file in "${files[@]}";
-	do
-		file_dir=${file%/*}
-		file_name=${file%.*}
-		file_tail=${file##*.}
-		file_sname=${file_name##*/}
-		mv $file $file_dir'/'$prefix$file_sname'.'$file_tail
-		echo "prefix ia added"
-	done
-}
+#创建用户目录
+user_path="/home/${user}/ftp"
+if [[ ! -d "$user_path" ]];
+then
+		mkdir -p "$user_path"
+else
+		echo "${user_path} is already exited!"
+fi
 
-function rename_add_suffix()
-#统一添加文件名后缀
-{
-	suffix=${1}
-	dir=${2}
-	files=($(find "${dir}" -regex '.*\.jpg\|.*\.svg\|.*\.png\|.*\.jpeg'))
-	for file in "${files[@]}";
-	do
-		file_name=${file%.*}
-		file_tail=${file##*.}
-		mv $file $file_name$suffix'.'$file_tail
-		echo "suffix is added"
-	done
-}
+# 设置所有权
+chown nobody:nogroup "$user_path"
+# 删除写权限
+chmod a-w "$user_path"
+# 验证权限
+ls -la "$user_path"
+# 为用户创建upload目录
+writeable_path="${user_path}/files"
+if [[ ! -d "$writeable_path" ]];
+then
+		mkdir -p "$writeable_path"
+else
+		echo "${writeable_path} is already exited!"
+fi
 
-function transfer_format()
-#将png/svg图片统一转换为jpg格式图片
-{
-	dir=${1}
-	files=($(find "$dir" -regex  '.*\.png\|.*svg'))
-	for file in "${files[@]}";
-	do
-		convert $file "${file%.*}.jpg"
-		echo "tranfer to jpg finished"
-	done
-}
+#修改文件夹属主
+chown "$user":"$user" "$writeable_path"
+ls -la "$writeable_path"
+echo "vsftpd test file for the login user" | tee "${writeable_path}/test_u.txt"
 
+echo poggio > /etc/vsftpd.userlist
+echo anonymous >> /etc/vsftpd.userlist
 
-while [ "$1" != "" ];do
-       case "$1" in
-	       "-q")
-		       jpeg_quality_compress $2 $3
-		       exit 0
-		       ;;
-	       "-r")
-		       keep_ratio_compress $2 $3
-		       exit 0
-		       ;;
-	       "-w")
-		       add_watermark $2 $3
-		       exit 0
-		       ;;
-	       "-p")
-		       rename_add_prefix $2 $3
-		       exit 0
-		       ;;
-	       "-s")
-		       rename_add_suffix $2 $3
-		       exit 0
-		       ;;
-	       "-c")
-		       transfer_format $2
-		       exit 0
-		       ;;
-	       "-h")
-		       help
-		       exit 0
-		       ;;
-       esac
-done
+if [[ -z $(cat /etc/vsftpd.conf | grep "userlist_file=/etc/vsftpd.userlist") ]]; then
+	cat<<EOT >>/etc/vsftpd.conf
+local_root=/home/%LOCAL_ROOT%/ftp
+userlist_file=/etc/vsftpd.userlist
+userlist_enable=YES
+userlist_deny=NO
+anon_root=/var/ftp/
+no_anon_password=YES
+hide_ids=YES
+pasv_min_port=40000
+pasv_max_port=50000
+tcp_wrappers=YES
+EOT
+fi
+
+#完成模板变量动态赋值，并保持幂等性
+sed -i -e "s#%LOCAL_ROOT%#/home/$user/ftp#g" /etc/vsftpd.conf
+
+#只允许白名单用户访问ftp
+grep -q "vsftpd: ALL"  /etc/hosts.deny || echo "vsftpd: ALL" >> /etc/hosts.deny
+grep -q "vsftpd:127.0.0.1"  /etc/hosts.deny || echo "vsftpd:127.0.0.1" >> /etc/hosts.allow
+
+service vsftpd restart
