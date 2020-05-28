@@ -4,46 +4,15 @@ language: bash
 before_install:
         - sudo apt-get update -q
         - export scversion="stable" # or "v0.4.7", or "latest"
-        - wget "https://storage.googleapis.com/shellcheck/shellcheck-${scversion}.linux.x86_64.tar.xz"
-        - tar --xz -xvf shellcheck-"${scversion}".linux.x86_64.tar.xz
-        - sudo cp shellcheck-"${scversion}"/shellcheck /usr/bin/
+       
         - /usr/bin/shellcheck --version
         - sed -i 's/\r//g' test-1.sh
          
-        - sudo apt-get install imagemagick 
-        - sudo apt install ghostscript
+
 
        
        
-        
-     
-script:
 
-         #任务一:用bash编写一个图片批处理脚本
-         #帮助文档
-         - bash test-1.sh -h  
-          
-         #对jpeg格式图片进行图片质量压缩
-         - bash test-1.sh -q 80 ./img
-          
-         #对jpeg/png/svg格式图片在保持原始宽高比的前提下压缩分辨率
-         - bash test-1.sh -r 50 ./img
-          
-         #批量添加自定义文本水印
-         - bash test-1.sh -w a_watermark ./img
-          
-         #前缀
-         - bash test-1.sh -p a_head ./img
-          
-         #后缀
-         - bash test-1.sh -s a_tail ./img
-       
-         #将png/svg图片统一转换为jpg格式图片
-         - bash test-1.sh -c ./img
-          
-  
-after_script:
-        - /usr/bin/shellcheck test-1.sh
        
 
 after_failure:
